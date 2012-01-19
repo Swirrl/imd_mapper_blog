@@ -6,7 +6,7 @@ This is the code to accompany a series of articles on the [Learn Linked Data blo
 
 This code is released under the MIT license.
 
-Copyright (C) 2011 by Swirrl IT Limited
+Copyright (C) 2012 by Swirrl IT Limited
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
