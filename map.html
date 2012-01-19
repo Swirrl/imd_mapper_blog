@@ -7,11 +7,17 @@
   <script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?sensor=false&region=GB"></script>
   <script type="text/javascript" src="http://code.jquery.com/jquery-1.6.4.min.js"></script>
   <script src="javascripts/raphael.js"></script>
+
+  <script type="text/javascript" src="javascripts/swirrl.js"></script>
+  <script type="text/javascript" src="javascripts/swirrl/map-manager.js"></script>
 </head>
 <body>
   <div id="container">
     <div id="info"></div>
     <div id="map_canvas"></div>
+    <div id="map_canvas"></div>
+    <div id="zoom_warning" style="display:none"><div class="words">Zoom-level too wide. Please zoom in to see the LSOAs</div></div>
+    <div id="busy_notice" style="display:none"><img src="images/working.gif"/><div class="words">Working...</div></div>
     <select id="domain">
       <option value="IMD-score">Combined Score</option>
       <option value="IMD-housing-score">Housing</option>
@@ -30,35 +36,63 @@
 
   <script type="text/javascript">
     (function(){
-      var map = new google.maps.Map(document.getElementById("map_canvas"), {
-        zoom: 14,
-        center: new google.maps.LatLng(53.48, -2.245), // Manchester
-        mapTypeId: google.maps.MapTypeId.ROADMAP,
-        streetViewControl: false
+      var mapManager
+        , idleListener = null
+        , startTime
+        , map = new google.maps.Map(document.getElementById("map_canvas"), {
+            zoom: 14,
+            center: new google.maps.LatLng(53.48, -2.245), // Manchester
+            mapTypeId: google.maps.MapTypeId.ROADMAP,
+            streetViewControl: false
+          });
+
+      var mapManager = new swirrl.MapManager(map, "IMD-score"); // initialize with the overall score.
+
+      // Handle events coming out of the Map Manager.
+      $(mapManager).bind('started', function() {
+        startTime = new Date();
+        if(idleListener) {
+          google.maps.event.removeListener(idleListener);
+          idleListener = null;
+        }
+        $("#busy_notice").show();
       });
+
+      $(mapManager).bind('finished', function() {
+        window.swirrl.log('busy duration: ' + (new Date() - startTime) + ' ms');
+        $("#busy_notice").hide();
+        bindMapIdle();
+      });
+
+      // show warning if zoom too wide
+      $(mapManager).bind('zoomTooWide', function() {
+        if (!$("#zoom_warning").is(":visible")) {
+          $("#zoom_warning").show();
+        }
+      });
+
+      // hide warning if zoom oK
+      $(mapManager).bind('zoomOK', function() {
+        if ($("#zoom_warning").is(":visible")) {
+          $("#zoom_warning").hide();
+        }
+      });
+
+      // function to wire up the idleListener
+      var bindMapIdle = function() {
+        // if we don't already have an idle-listener, bind one up.
+        // (fires when the map bounds haven't changed for a bit)
+        if (!idleListener) {
+          idleListener = google.maps.event.addListener(map, 'idle', function(e) {
+            window.swirrl.log('refreshing map');
+            mapManager.refresh();
+          });
+        }
+      }
+
+      // Finally, start listening to Map-Idle events.
+      bindMapIdle();
     })();
-
-    // this is the SPARQL we want to run.
-
-    // PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
-    // PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-
-    // SELECT ?lsoa ?notation ?label ?lat ?long ?score
-    // WHERE {
-    //   GRAPH <http://opendatacommunities.org/id/graph/geography/lsoa> {
-    //     ?lsoa a <http://opendatacommunities.org/def/geography#LSOA> .
-    //     ?lsoa geo:lat ?lat .
-    //     ?lsoa geo:long ?long .
-    //     ?lsoa <http://www.w3.org/2004/02/skos/core#notation> ?notation .
-    //     ?lsoa rdfs:label ?label .
-    //   }
-    //   GRAPH <http://opendatacommunities.org/id/graph/IMD/2010/IMD-score> {
-    //     ?obs <http://purl.org/linked-data/sdmx/2009/dimension#refArea> ?lsoa .
-    //     ?obs <http://opendatacommunities.org/def/IMD#IMD-score> ?score .
-    //   }
-    //   FILTER ( ?lat >= 53.4 && ?lat < 53.5 &&
-    //     ?long >= -2.3 && ?long < -2.2 ) .
-    // }
 
   </script>
 
